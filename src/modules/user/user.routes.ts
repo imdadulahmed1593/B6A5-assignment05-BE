@@ -10,7 +10,7 @@ router.use(auth(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN));
 // Get current user profile
 router.get("/me", UserController.getMyProfile);
 
-// Get dashboard data
+// Get dashboard data for current user (bookings, reviews, etc.)
 router.get("/dashboard", UserController.getDashboard);
 
 // Update current user profile
