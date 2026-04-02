@@ -6,6 +6,7 @@ const router = Router();
 
 // all routes in this file are protected - only students and admins can access
 router.post("/webhook", PaymentController.webhook);
+// Create checkout session for a booking
 router.post(
   "/checkout-session",
   auth(UserRole.STUDENT, UserRole.ADMIN),
