@@ -15,7 +15,7 @@ router.post(
   TutorController.createTutorProfile,
 );
 
-// Tutor only routes
+// Tutor only routes - Get/update own profile, manage availability, view bookings
 router.get("/me/profile", auth(UserRole.TUTOR), TutorController.getMyProfile);
 
 router.put(
