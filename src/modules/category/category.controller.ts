@@ -39,6 +39,7 @@ const createCategory = catchAsync(async (req: Request, res: Response) => {
 
 const updateCategory = catchAsync(async (req: Request, res: Response) => {
   const id = req.params.id as string;
+
   const category = await CategoryService.updateCategory(id, req.body);
 
   sendResponse(res, {
@@ -51,6 +52,7 @@ const updateCategory = catchAsync(async (req: Request, res: Response) => {
 
 const deleteCategory = catchAsync(async (req: Request, res: Response) => {
   const id = req.params.id as string;
+
   await CategoryService.deleteCategory(id);
 
   sendResponse(res, {
