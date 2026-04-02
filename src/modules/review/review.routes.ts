@@ -7,7 +7,7 @@ const router = Router();
 // Public route - Get reviews for a tutor
 router.get("/tutor/:tutorProfileId", ReviewController.getTutorReviews);
 
-// Protected routes
+// Protected routes - Students, Tutors, and Admins can create/update their reviews
 router.post(
   "/",
   auth(UserRole.STUDENT, UserRole.TUTOR, UserRole.ADMIN),
