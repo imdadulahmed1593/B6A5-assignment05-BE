@@ -4,6 +4,7 @@ import { PaymentController } from "./payment.controller";
 
 const router = Router();
 
+// all routes in this file are protected - only students and admins can access
 router.post("/webhook", PaymentController.webhook);
 router.post(
   "/checkout-session",
