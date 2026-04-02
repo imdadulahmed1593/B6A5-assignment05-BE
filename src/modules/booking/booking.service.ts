@@ -1,6 +1,7 @@
 import { prisma } from "../../lib/prisma";
 import { ApiError } from "../../utils/ApiError";
-import { BookingStatus } from "../../../generated/prisma/client";
+import { BookingStatus, PaymentStatus } from "../../../generated/prisma/client";
+import { config } from "../../config";
 
 // Create a new booking (Student only)
 const createBooking = async (
@@ -73,12 +74,16 @@ const createBooking = async (
     throw new ApiError(400, "Tutor already has a booking at this time");
   }
 
+  const amount = Math.round((tutorProfile.hourlyRate * duration * 100) / 60);
+
   const booking = await prisma.booking.create({
     data: {
       studentId,
       tutorProfileId,
       scheduledAt: scheduledDate,
       duration,
+      amount,
+      currency: config.stripe.currency,
       notes: notes ?? null,
       status: BookingStatus.PENDING,
     },
@@ -278,6 +283,28 @@ const updateBookingStatus = async (
     throw new ApiError(400, "Cannot update a completed booking");
   }
 
+  // Confirmed/completed sessions require successful payment.
+  if (
+    (status === BookingStatus.CONFIRMED ||
+      status === BookingStatus.COMPLETED) &&
+    booking.paymentStatus !== PaymentStatus.PAID
+  ) {
+    throw new ApiError(
+      400,
+      "Booking can only be confirmed or completed after payment is completed",
+    );
+  }
+
+  if (
+    status === BookingStatus.COMPLETED &&
+    booking.status !== BookingStatus.CONFIRMED
+  ) {
+    throw new ApiError(
+      400,
+      "Booking can only be completed after it is confirmed",
+    );
+  }
+
   // Students can only cancel
   if (isStudent && !isAdmin && status !== BookingStatus.CANCELLED) {
     throw new ApiError(400, "Students can only cancel bookings");
@@ -359,9 +386,32 @@ const updateStatus = async (id: string, status: string) => {
     throw new ApiError(404, "Booking not found");
   }
 
+  const nextStatus = status as BookingStatus;
+
+  if (
+    (nextStatus === BookingStatus.CONFIRMED ||
+      nextStatus === BookingStatus.COMPLETED) &&
+    booking.paymentStatus !== PaymentStatus.PAID
+  ) {
+    throw new ApiError(
+      400,
+      "Booking can only be confirmed or completed after payment is completed",
+    );
+  }
+
+  if (
+    nextStatus === BookingStatus.COMPLETED &&
+    booking.status !== BookingStatus.CONFIRMED
+  ) {
+    throw new ApiError(
+      400,
+      "Booking can only be completed after it is confirmed",
+    );
+  }
+
   const updatedBooking = await prisma.booking.update({
     where: { id },
-    data: { status: status as BookingStatus },
+    data: { status: nextStatus },
     include: {
       student: {
         select: {

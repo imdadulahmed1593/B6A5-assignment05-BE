@@ -5,6 +5,7 @@ import { bookingRoutes } from "../modules/booking/booking.routes";
 import { reviewRoutes } from "../modules/review/review.routes";
 import { adminRoutes } from "../modules/admin/admin.routes";
 import { userRoutes } from "../modules/user/user.routes";
+import { paymentRoutes } from "../modules/payment/payment.routes";
 
 const router = Router();
 
@@ -14,6 +15,7 @@ router.use("/tutors", tutorRoutes);
 router.use("/bookings", bookingRoutes);
 router.use("/reviews", reviewRoutes);
 router.use("/users", userRoutes);
+router.use("/payments", paymentRoutes);
 
 // Admin routes
 router.use("/admin", adminRoutes);

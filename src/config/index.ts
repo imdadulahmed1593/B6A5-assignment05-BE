@@ -12,5 +12,11 @@ export const config = {
     expires_in: process.env.JWT_EXPIRES_IN || "7d",
   },
   client_url: process.env.CLIENT_URL || "http://localhost:3000",
+  app_url: process.env.APP_URL || "http://localhost:3000",
+  stripe: {
+    secret_key: process.env.STRIPE_SECRET_KEY,
+    webhook_secret: process.env.STRIPE_WEBHOOK_SECRET,
+    currency: process.env.STRIPE_CURRENCY || "usd",
+  },
   bcrypt_salt_rounds: 12,
 };

@@ -5,16 +5,19 @@ import cors from "cors";
 import errorHandler from "./middlewares/globalErrorHandler";
 import { notFound } from "./middlewares/notFound";
 import routes from "./routes";
+import { config } from "./config";
 
 const app: Application = express();
 
 app.use(
   cors({
-    origin: process.env.APP_URL || "http://localhost:3000", // client side url
+    origin: config.app_url,
     credentials: true,
   }),
 );
 
+// Stripe webhook requires raw body for signature verification.
+app.use("/api/payments/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 
 // Better Auth routes

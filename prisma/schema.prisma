@@ -11,23 +11,25 @@ datasource db {
 }
 
 model User {
-    id            String    @id
-    name          String
-    email         String
-    emailVerified Boolean   @default(false)
-    image         String?
-    createdAt     DateTime  @default(now())
-    updatedAt     DateTime  @updatedAt
-    role          String?   @default("STUDENT")
-    phone         String?
-    status        String?   @default("ACTIVE")
-    sessions      Session[]
-    accounts      Account[]
+    id               String    @id
+    name             String
+    email            String
+    emailVerified    Boolean   @default(false)
+    image            String?
+    createdAt        DateTime  @default(now())
+    updatedAt        DateTime  @updatedAt
+    role             String?   @default("STUDENT")
+    phone            String?
+    status           String?   @default("ACTIVE")
+    stripeCustomerId String?   @unique
+    sessions         Session[]
+    accounts         Account[]
 
     // Application relations
     tutorProfile TutorProfile?
     bookings     Booking[]
     reviews      Review[]
+    payments     Payment[]
 
     @@unique([email])
     @@map("user")
@@ -89,6 +91,13 @@ enum BookingStatus {
     CONFIRMED
     COMPLETED
     CANCELLED
+}
+
+enum PaymentStatus {
+    PENDING
+    PAID
+    FAILED
+    REFUNDED
 }
 
 model TutorProfile {
@@ -156,22 +165,48 @@ model TutorAvailability {
 }
 
 model Booking {
-    id             String        @id @default(uuid())
-    studentId      String
-    tutorProfileId String
-    scheduledAt    DateTime
-    duration       Int           @default(60) // in minutes
-    status         BookingStatus @default(PENDING)
-    notes          String?
-    createdAt      DateTime      @default(now())
-    updatedAt      DateTime      @updatedAt
+    id                      String        @id @default(uuid())
+    studentId               String
+    tutorProfileId          String
+    scheduledAt             DateTime
+    duration                Int           @default(60) // in minutes
+    amount                  Int           @default(0)
+    currency                String        @default("usd")
+    status                  BookingStatus @default(PENDING)
+    paymentStatus           PaymentStatus @default(PENDING)
+    stripeCheckoutSessionId String?       @unique
+    stripePaymentIntentId   String?       @unique
+    paidAt                  DateTime?
+    notes                   String?
+    createdAt               DateTime      @default(now())
+    updatedAt               DateTime      @updatedAt
 
     // Relations
     student      User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
     tutorProfile TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
     review       Review?
+    payment      Payment?
 
     @@map("bookings")
+}
+
+model Payment {
+    id                      String        @id @default(uuid())
+    bookingId               String        @unique
+    studentId               String
+    amount                  Int
+    currency                String        @default("usd")
+    status                  PaymentStatus @default(PENDING)
+    stripeCheckoutSessionId String?       @unique
+    stripePaymentIntentId   String?       @unique
+    paidAt                  DateTime?
+    createdAt               DateTime      @default(now())
+    updatedAt               DateTime      @updatedAt
+
+    booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+    student User    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+    @@map("payments")
 }
 
 model Review {
