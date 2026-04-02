@@ -1,6 +1,6 @@
-# SkillBridge Backend
+# Learnzy Backend
 
-A RESTful API backend for the SkillBridge tutoring platform, built with Express.js, Prisma, and Better Auth.
+A RESTful API backend for the Learnzy tutoring platform, built with Express.js, Prisma, and Better Auth.
 
 ## 🚀 Tech Stack
 
