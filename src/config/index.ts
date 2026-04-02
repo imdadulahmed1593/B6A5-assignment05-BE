@@ -3,6 +3,15 @@ import path from "path";
 
 dotenv.config({ path: path.join(process.cwd(), ".env") });
 
+const normalizeUrl = (url: string) => url.trim().replace(/\/$/, "");
+
+const frontendUrl = normalizeUrl(
+  process.env.CLIENT_URL ||
+    process.env.FRONTEND_URL ||
+    process.env.APP_URL ||
+    "http://localhost:3000",
+);
+
 export const config = {
   node_env: process.env.NODE_ENV || "development",
   port: parseInt(process.env.PORT || "5000", 10),
@@ -13,6 +22,7 @@ export const config = {
   },
   client_url: process.env.CLIENT_URL || "http://localhost:3000",
   app_url: process.env.APP_URL || "http://localhost:3000",
+  frontend_url: frontendUrl,
   stripe: {
     secret_key: process.env.STRIPE_SECRET_KEY,
     webhook_secret: process.env.STRIPE_WEBHOOK_SECRET,

@@ -3,6 +3,22 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
 import nodemailer from "nodemailer";
 
+const normalizeOrigin = (origin: string) => origin.trim().replace(/\/$/, "");
+
+const trustedOrigins = Array.from(
+  new Set(
+    [
+      process.env.APP_URL,
+      process.env.CLIENT_URL,
+      process.env.FRONTEND_URL,
+      process.env.NEXT_PUBLIC_APP_URL,
+      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+    ]
+      .filter((value): value is string => Boolean(value))
+      .map(normalizeOrigin),
+  ),
+);
+
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
@@ -17,7 +33,7 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql", // or "mysql", "postgresql", ...etc
   }),
-  trustedOrigins: [process.env.APP_URL!],
+  trustedOrigins,
   advanced: {
     crossOriginCookies: {
       enabled: process.env.NODE_ENV === "production",

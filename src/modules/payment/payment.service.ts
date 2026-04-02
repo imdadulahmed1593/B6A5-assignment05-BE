@@ -98,8 +98,8 @@ const createCheckoutSession = async (studentId: string, bookingId: string) => {
       bookingId: booking.id,
       studentId,
     },
-    success_url: `${config.client_url}/dashboard/bookings?payment=success&bookingId=${booking.id}&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${config.client_url}/dashboard/bookings?payment=cancel&bookingId=${booking.id}`,
+    success_url: `${config.frontend_url}/dashboard/bookings?payment=success&bookingId=${booking.id}&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${config.frontend_url}/dashboard/bookings?payment=cancel&bookingId=${booking.id}`,
   });
 
   await prisma.$transaction([

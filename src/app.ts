@@ -27,7 +27,7 @@ app.all("/api/auth/*splat", toNodeHandler(auth));
 app.use("/api", routes);
 
 app.get("/", (req, res) => {
-  res.send("SkillBridge API is running!");
+  res.send("Learnzy API is running!");
 });
 
 app.use(notFound);
