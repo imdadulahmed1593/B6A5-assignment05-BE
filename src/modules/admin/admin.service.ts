@@ -1,6 +1,8 @@
 import { prisma } from "../../lib/prisma";
 import { ApiError } from "../../utils/ApiError";
 
+const formatDateKey = (date: Date) => date.toISOString().slice(0, 10);
+
 // Get all users (Admin only)
 const getAllUsers = async (filters: {
   search?: string;
@@ -249,6 +251,7 @@ const getDashboardStats = async () => {
     completedBookings,
     totalCategories,
     totalReviews,
+    paidPayments,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { role: "TUTOR" } }),
@@ -258,6 +261,10 @@ const getDashboardStats = async () => {
     prisma.booking.count({ where: { status: "COMPLETED" } }),
     prisma.category.count(),
     prisma.review.count(),
+    prisma.payment.aggregate({
+      where: { status: "PAID" },
+      _sum: { amount: true },
+    }),
   ]);
 
   // Get recent bookings
@@ -300,10 +307,75 @@ const getDashboardStats = async () => {
       completedBookings,
       totalCategories,
       totalReviews,
+      totalRevenue: Number(((paidPayments._sum.amount || 0) / 100).toFixed(2)),
     },
     recentBookings,
     topTutors,
   };
+};
+
+const getDashboardTrends = async (days = 7) => {
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(today.getDate() - (days - 1));
+  start.setHours(0, 0, 0, 0);
+
+  const [bookings, users, payments] = await Promise.all([
+    prisma.booking.findMany({
+      where: { createdAt: { gte: start } },
+      select: { createdAt: true, status: true },
+    }),
+    prisma.user.findMany({
+      where: { createdAt: { gte: start } },
+      select: { createdAt: true },
+    }),
+    prisma.payment.findMany({
+      where: { createdAt: { gte: start }, status: "PAID" },
+      select: { createdAt: true, amount: true },
+    }),
+  ]);
+
+  const series = Array.from({ length: days }).map((_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+
+    return {
+      date: formatDateKey(date),
+      bookings: 0,
+      completedBookings: 0,
+      users: 0,
+      revenue: 0,
+    };
+  });
+
+  const seriesMap = new Map(series.map((item) => [item.date, item]));
+
+  bookings.forEach((booking) => {
+    const key = formatDateKey(booking.createdAt);
+    const day = seriesMap.get(key);
+    if (!day) return;
+
+    day.bookings += 1;
+    if (booking.status === "COMPLETED") {
+      day.completedBookings += 1;
+    }
+  });
+
+  users.forEach((user) => {
+    const key = formatDateKey(user.createdAt);
+    const day = seriesMap.get(key);
+    if (!day) return;
+    day.users += 1;
+  });
+
+  payments.forEach((payment) => {
+    const key = formatDateKey(payment.createdAt);
+    const day = seriesMap.get(key);
+    if (!day) return;
+    day.revenue += Number((payment.amount / 100).toFixed(2));
+  });
+
+  return series;
 };
 
 export const AdminService = {
@@ -313,4 +385,5 @@ export const AdminService = {
   updateUserRole,
   getAllBookings,
   getDashboardStats,
+  getDashboardTrends,
 };

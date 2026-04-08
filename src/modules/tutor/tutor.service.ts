@@ -14,6 +14,11 @@ interface TutorFilters {
   sortOrder?: "asc" | "desc";
 }
 
+interface RecommendationFilters {
+  categoryId?: string;
+  limit?: number;
+}
+
 // Get all tutors with filters (Public)
 const getAllTutors = async (filters: TutorFilters) => {
   const {
@@ -158,6 +163,94 @@ const getTutorById = async (id: string) => {
   }
 
   return tutor;
+};
+
+const getSearchSuggestions = async (query: string, limit = 6) => {
+  const q = query.trim();
+  if (!q) {
+    return [];
+  }
+
+  const tutors = await prisma.tutorProfile.findMany({
+    where: {
+      OR: [
+        { user: { name: { contains: q, mode: "insensitive" } } },
+        { bio: { contains: q, mode: "insensitive" } },
+        {
+          categories: {
+            some: {
+              category: { name: { contains: q, mode: "insensitive" } },
+            },
+          },
+        },
+      ],
+      isAvailable: true,
+    },
+    take: limit,
+    orderBy: [{ rating: "desc" }, { totalReviews: "desc" }],
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      categories: {
+        include: { category: true },
+      },
+    },
+  });
+
+  return tutors.map((tutor) => ({
+    tutorId: tutor.id,
+    name: tutor.user.name,
+    categories: tutor.categories.map((item) => item.category.name),
+    rating: tutor.rating,
+  }));
+};
+
+const getRecommendations = async (filters: RecommendationFilters) => {
+  const { categoryId, limit = 8 } = filters;
+
+  const where: any = {
+    isAvailable: true,
+  };
+
+  if (categoryId) {
+    where.categories = {
+      some: { categoryId },
+    };
+  }
+
+  const tutors = await prisma.tutorProfile.findMany({
+    where,
+    take: limit,
+    orderBy: [
+      { rating: "desc" },
+      { totalReviews: "desc" },
+      { experience: "desc" },
+    ],
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+        },
+      },
+      categories: {
+        include: {
+          category: true,
+        },
+      },
+      _count: {
+        select: { reviews: true, bookings: true },
+      },
+    },
+  });
+
+  return tutors;
 };
 
 // Create tutor profile (Authenticated users who want to become tutors)
@@ -426,6 +519,8 @@ const getMyBookings = async (
 export const TutorService = {
   getAllTutors,
   getTutorById,
+  getSearchSuggestions,
+  getRecommendations,
   createTutorProfile,
   updateTutorProfile,
   updateAvailability,

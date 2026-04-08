@@ -221,13 +221,17 @@ export const auth = betterAuth({
     },
   },
 
-  // socialProviders: {
-  //   google: {
-  //     prompt: "select_account consent",
-  //     accessType: "offline",
-  //     clientId: process.env.GOOGLE_CLIENT_ID as string,
-  //     clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-  //   },
-  // },
+  ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    ? {
+        socialProviders: {
+          google: {
+            prompt: "select_account consent",
+            accessType: "offline",
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+          },
+        },
+      }
+    : {}),
 });
 

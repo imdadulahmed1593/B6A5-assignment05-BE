@@ -505,15 +505,17 @@ var auth = betterAuth({
         throw err;
       }
     }
-  }
-  // socialProviders: {
-  //   google: {
-  //     prompt: "select_account consent",
-  //     accessType: "offline",
-  //     clientId: process.env.GOOGLE_CLIENT_ID as string,
-  //     clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-  //   },
-  // },
+  },
+  ...process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? {
+    socialProviders: {
+      google: {
+        prompt: "select_account consent",
+        accessType: "offline",
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET
+      }
+    }
+  } : {}
 });
 
 // src/app.ts
@@ -934,6 +936,82 @@ var getTutorById = async (id) => {
   }
   return tutor;
 };
+var getSearchSuggestions = async (query, limit = 6) => {
+  const q = query.trim();
+  if (!q) {
+    return [];
+  }
+  const tutors = await prisma.tutorProfile.findMany({
+    where: {
+      OR: [
+        { user: { name: { contains: q, mode: "insensitive" } } },
+        { bio: { contains: q, mode: "insensitive" } },
+        {
+          categories: {
+            some: {
+              category: { name: { contains: q, mode: "insensitive" } }
+            }
+          }
+        }
+      ],
+      isAvailable: true
+    },
+    take: limit,
+    orderBy: [{ rating: "desc" }, { totalReviews: "desc" }],
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true
+        }
+      },
+      categories: {
+        include: { category: true }
+      }
+    }
+  });
+  return tutors.map((tutor) => ({
+    tutorId: tutor.id,
+    name: tutor.user.name,
+    categories: tutor.categories.map((item) => item.category.name),
+    rating: tutor.rating
+  }));
+};
+var getRecommendations = async (filters) => {
+  const { categoryId, limit = 8 } = filters;
+  const where = {
+    isAvailable: true
+  };
+  if (categoryId) {
+    where.categories = {
+      some: { categoryId }
+    };
+  }
+  const tutors = await prisma.tutorProfile.findMany({
+    where,
+    take: limit,
+    orderBy: [{ rating: "desc" }, { totalReviews: "desc" }, { experience: "desc" }],
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true
+        }
+      },
+      categories: {
+        include: {
+          category: true
+        }
+      },
+      _count: {
+        select: { reviews: true, bookings: true }
+      }
+    }
+  });
+  return tutors;
+};
 var createTutorProfile = async (userId, data) => {
   const existingProfile = await prisma.tutorProfile.findUnique({
     where: { userId }
@@ -1123,6 +1201,8 @@ var getMyBookings = async (userId, filters) => {
 var TutorService = {
   getAllTutors,
   getTutorById,
+  getSearchSuggestions,
+  getRecommendations,
   createTutorProfile,
   updateTutorProfile,
   updateAvailability,
@@ -1172,6 +1252,31 @@ var getTutorById2 = catchAsync(async (req, res) => {
     success: true,
     message: "Tutor retrieved successfully",
     data: tutor
+  });
+});
+var getSearchSuggestions2 = catchAsync(async (req, res) => {
+  const query = req.query.q || "";
+  const limit = req.query.limit ? Number(req.query.limit) : 6;
+  const suggestions = await TutorService.getSearchSuggestions(query, limit);
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Tutor suggestions retrieved successfully",
+    data: suggestions
+  });
+});
+var getRecommendations2 = catchAsync(async (req, res) => {
+  const categoryId = req.query.categoryId;
+  const limit = req.query.limit ? Number(req.query.limit) : 8;
+  const recommendations = await TutorService.getRecommendations({
+    categoryId,
+    limit
+  });
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Tutor recommendations retrieved successfully",
+    data: recommendations
   });
 });
 var createTutorProfile2 = catchAsync(async (req, res) => {
@@ -1234,6 +1339,8 @@ var getMyBookings2 = catchAsync(async (req, res) => {
 var TutorController = {
   getAllTutors: getAllTutors2,
   getTutorById: getTutorById2,
+  getSearchSuggestions: getSearchSuggestions2,
+  getRecommendations: getRecommendations2,
   createTutorProfile: createTutorProfile2,
   updateTutorProfile: updateTutorProfile2,
   updateAvailability: updateAvailability2,
@@ -1244,7 +1351,8 @@ var TutorController = {
 // src/modules/tutor/tutor.routes.ts
 var router2 = Router2();
 router2.get("/", TutorController.getAllTutors);
-router2.get("/:id", TutorController.getTutorById);
+router2.get("/suggestions", TutorController.getSearchSuggestions);
+router2.get("/recommendations", TutorController.getRecommendations);
 router2.post(
   "/profile",
   auth_default("STUDENT" /* STUDENT */, "TUTOR" /* TUTOR */, "ADMIN" /* ADMIN */),
@@ -1262,6 +1370,7 @@ router2.put(
   TutorController.updateAvailability
 );
 router2.get("/me/bookings", auth_default("TUTOR" /* TUTOR */), TutorController.getMyBookings);
+router2.get("/:id", TutorController.getTutorById);
 var tutorRoutes = router2;
 
 // src/modules/booking/booking.routes.ts
@@ -2074,6 +2183,7 @@ var reviewRoutes = router4;
 import { Router as Router5 } from "express";
 
 // src/modules/admin/admin.service.ts
+var formatDateKey = (date) => date.toISOString().slice(0, 10);
 var getAllUsers = async (filters) => {
   const { search, role, status, page = 1, limit = 10 } = filters;
   const skip = (page - 1) * limit;
@@ -2278,7 +2388,8 @@ var getDashboardStats = async () => {
     pendingBookings,
     completedBookings,
     totalCategories,
-    totalReviews
+    totalReviews,
+    paidPayments
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { role: "TUTOR" } }),
@@ -2287,7 +2398,11 @@ var getDashboardStats = async () => {
     prisma.booking.count({ where: { status: "PENDING" } }),
     prisma.booking.count({ where: { status: "COMPLETED" } }),
     prisma.category.count(),
-    prisma.review.count()
+    prisma.review.count(),
+    prisma.payment.aggregate({
+      where: { status: "PAID" },
+      _sum: { amount: true }
+    })
   ]);
   const recentBookings = await prisma.booking.findMany({
     take: 5,
@@ -2324,11 +2439,66 @@ var getDashboardStats = async () => {
       pendingBookings,
       completedBookings,
       totalCategories,
-      totalReviews
+      totalReviews,
+      totalRevenue: Number(((paidPayments._sum.amount || 0) / 100).toFixed(2))
     },
     recentBookings,
     topTutors
   };
+};
+var getDashboardTrends = async (days = 7) => {
+  const today = /* @__PURE__ */ new Date();
+  const start = new Date(today);
+  start.setDate(today.getDate() - (days - 1));
+  start.setHours(0, 0, 0, 0);
+  const [bookings, users, payments] = await Promise.all([
+    prisma.booking.findMany({
+      where: { createdAt: { gte: start } },
+      select: { createdAt: true, status: true }
+    }),
+    prisma.user.findMany({
+      where: { createdAt: { gte: start } },
+      select: { createdAt: true }
+    }),
+    prisma.payment.findMany({
+      where: { createdAt: { gte: start }, status: "PAID" },
+      select: { createdAt: true, amount: true }
+    })
+  ]);
+  const series = Array.from({ length: days }).map((_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return {
+      date: formatDateKey(date),
+      bookings: 0,
+      completedBookings: 0,
+      users: 0,
+      revenue: 0
+    };
+  });
+  const seriesMap = new Map(series.map((item) => [item.date, item]));
+  bookings.forEach((booking) => {
+    const key = formatDateKey(booking.createdAt);
+    const day = seriesMap.get(key);
+    if (!day) return;
+    day.bookings += 1;
+    if (booking.status === "COMPLETED") {
+      day.completedBookings += 1;
+    }
+  });
+  users.forEach((user) => {
+    const key = formatDateKey(user.createdAt);
+    const day = seriesMap.get(key);
+    if (!day) return;
+    day.users += 1;
+  });
+  payments.forEach((payment) => {
+    const key = formatDateKey(payment.createdAt);
+    const day = seriesMap.get(key);
+    if (!day) return;
+    day.revenue += Number((payment.amount / 100).toFixed(2));
+  });
+  return series;
 };
 var AdminService = {
   getAllUsers,
@@ -2336,7 +2506,8 @@ var AdminService = {
   updateUserStatus,
   updateUserRole,
   getAllBookings,
-  getDashboardStats
+  getDashboardStats,
+  getDashboardTrends
 };
 
 // src/modules/admin/admin.controller.ts
@@ -2413,19 +2584,31 @@ var getDashboardStats2 = catchAsync(async (req, res) => {
     data: stats
   });
 });
+var getDashboardTrends2 = catchAsync(async (req, res) => {
+  const days = req.query.days ? Number(req.query.days) : 7;
+  const trends = await AdminService.getDashboardTrends(days);
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Dashboard trends retrieved successfully",
+    data: trends
+  });
+});
 var AdminController = {
   getAllUsers: getAllUsers2,
   getUserById: getUserById2,
   updateUserStatus: updateUserStatus2,
   updateUserRole: updateUserRole2,
   getAllBookings: getAllBookings2,
-  getDashboardStats: getDashboardStats2
+  getDashboardStats: getDashboardStats2,
+  getDashboardTrends: getDashboardTrends2
 };
 
 // src/modules/admin/admin.routes.ts
 var router5 = Router5();
 router5.use(auth_default("ADMIN" /* ADMIN */));
 router5.get("/dashboard", AdminController.getDashboardStats);
+router5.get("/dashboard/trends", AdminController.getDashboardTrends);
 router5.get("/users", AdminController.getAllUsers);
 router5.get("/users/:id", AdminController.getUserById);
 router5.patch("/users/:id/role", AdminController.updateUserRole);

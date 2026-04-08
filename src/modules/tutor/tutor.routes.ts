@@ -6,7 +6,8 @@ const router = Router();
 
 // Public routes
 router.get("/", TutorController.getAllTutors);
-router.get("/:id", TutorController.getTutorById);
+router.get("/suggestions", TutorController.getSearchSuggestions);
+router.get("/recommendations", TutorController.getRecommendations);
 
 // Protected routes - Any authenticated user can create a tutor profile
 router.post(
@@ -31,5 +32,7 @@ router.put(
 );
 
 router.get("/me/bookings", auth(UserRole.TUTOR), TutorController.getMyBookings);
+
+router.get("/:id", TutorController.getTutorById);
 
 export const tutorRoutes = router;

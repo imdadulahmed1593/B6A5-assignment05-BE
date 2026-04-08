@@ -94,6 +94,18 @@ const getDashboardStats = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getDashboardTrends = catchAsync(async (req: Request, res: Response) => {
+  const days = req.query.days ? Number(req.query.days) : 7;
+  const trends = await AdminService.getDashboardTrends(days);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Dashboard trends retrieved successfully",
+    data: trends,
+  });
+});
+
 export const AdminController = {
   getAllUsers,
   getUserById,
@@ -101,4 +113,5 @@ export const AdminController = {
   updateUserRole,
   getAllBookings,
   getDashboardStats,
+  getDashboardTrends,
 };

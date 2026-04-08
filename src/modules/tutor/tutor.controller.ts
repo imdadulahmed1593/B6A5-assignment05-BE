@@ -52,6 +52,35 @@ const getTutorById = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getSearchSuggestions = catchAsync(async (req: Request, res: Response) => {
+  const query = (req.query.q as string) || "";
+  const limit = req.query.limit ? Number(req.query.limit) : 6;
+  const suggestions = await TutorService.getSearchSuggestions(query, limit);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Tutor suggestions retrieved successfully",
+    data: suggestions,
+  });
+});
+
+const getRecommendations = catchAsync(async (req: Request, res: Response) => {
+  const categoryId = req.query.categoryId as string | undefined;
+  const limit = req.query.limit ? Number(req.query.limit) : 8;
+  const recommendations = await TutorService.getRecommendations({
+    categoryId,
+    limit,
+  });
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Tutor recommendations retrieved successfully",
+    data: recommendations,
+  });
+});
+
 const createTutorProfile = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const tutor = await TutorService.createTutorProfile(userId, req.body);
@@ -124,6 +153,8 @@ const getMyBookings = catchAsync(async (req: Request, res: Response) => {
 export const TutorController = {
   getAllTutors,
   getTutorById,
+  getSearchSuggestions,
+  getRecommendations,
   createTutorProfile,
   updateTutorProfile,
   updateAvailability,

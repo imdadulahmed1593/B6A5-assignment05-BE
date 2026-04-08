@@ -9,6 +9,7 @@ router.use(auth(UserRole.ADMIN));
 
 // Dashboard
 router.get("/dashboard", AdminController.getDashboardStats);
+router.get("/dashboard/trends", AdminController.getDashboardTrends);
 
 // Users management
 router.get("/users", AdminController.getAllUsers);
